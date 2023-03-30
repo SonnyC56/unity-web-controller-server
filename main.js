@@ -1,42 +1,55 @@
-// Importing the required modules
+
 const WebSocketServer = require('ws');
- 
-// Creating a new websocket server
-const wss = new WebSocketServer.Server({ port: 8080 })
+const wss = new WebSocketServer.Server({ port: 8080 });
 
-let connectedUserID = null;
-let numberOfClients = 0;
- 
-// Creating connection using websocket
+let connectedClients = [];
+let controlQueue = [];
+let unityClient = null;
+
 wss.on("connection", ws => {
-    numberOfClients++;
-    console.log("number of clients connected since server start", numberOfClients);
- 
-    // sending message to client
-    ws.send('Welcome, you are connected!');
- 
-    //on message from client
-    ws.on("message", data => {
-      //  console.log(`Client has sent us: ${data}`)
-        data = JSON.parse(data)
-   //     console.log('data.uuid: ', data.uuid)
+    console.log('client connected to server')
+    connectedClients.push(ws);
 
-        if(connectedUserID == null && data.uuid){
-            connectedUserID = data.uuid
-        }
-        if (data.uuid == connectedUserID && connectedUserID){
-            console.log('data.uuid == connectedUserID', connectedUserID)
-       //   console.log(`Client has sent us: ${data}`)
-        }
+    ws.on("message", data => {
+        data = JSON.parse(data);
+   //     console.log('recieving data from client: ', data)
+        if (data.type === "unity") {
+            // This is the Unity client
+            unityClient = ws;
+            console.log('UNITY CONNECTED :', unityClient)
+        } else if (data.type === "done") {
+            // The current client is done controlling the camera
+            controlQueue.shift();
+
+            // Allow the next client in line to take control
+            if (controlQueue.length > 0) {
+                controlQueue[0].send(JSON.stringify({ type: "control" }));
+            }
+        }   
+      if (unityClient) {
+         unityClient.send(JSON.stringify(data));
+         console.log('sending data to unity: ', data)
+      }
+        
     });
- 
-    // handling what to do when clients disconnects from server
+
     ws.on("close", () => {
-        console.log("the client has disconnected");
+        // Remove the disconnected client from the connected clients list and control queue
+        connectedClients = connectedClients.filter(client => client !== ws);
+        controlQueue = controlQueue.filter(client => client !== ws);
+
+        // If this was the Unity client, set it to null
+        if (ws === unityClient) {
+            unityClient = null;
+            console.log('UNITY DISCONNECTED')
+        }
     });
-    // handling client connection error
-    ws.onerror = function () {
-        console.log("Some Error occurred")
+
+    // Add the new client to the end of the control queue
+    controlQueue.push(ws);
+
+    // If this is the only client in the queue, allow them to take control immediately
+    if (controlQueue.length === 1) {
+        ws.send(JSON.stringify({ type: "control" }));
     }
 });
-console.log("The WebSocket server is running on port 8080");
