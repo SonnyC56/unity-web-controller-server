@@ -29,17 +29,8 @@ wss.on("connection", ws => {
         }   
       if (unityClient) {
          unityClient.send(JSON.stringify(data));
-         connectedClients.forEach((client) => {
-            client.send(JSON.stringify(data))
-        })
          console.log('sending data to unity: ', data)
-      } else {
-        ws.send(JSON.stringify(data))
-        connectedClients.forEach((client) => {
-            client.send(JSON.stringify(data))
-        })
-        console.log('sending data back to client: ', data)
-      }
+      } 
         
     });
 
