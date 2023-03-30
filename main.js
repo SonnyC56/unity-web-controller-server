@@ -12,6 +12,7 @@ wss.on("connection", ws => {
 
     ws.on("message", data => {
         data = JSON.parse(data);
+  
    //     console.log('recieving data from client: ', data)
         if (data.type === "unity") {
             // This is the Unity client
@@ -28,7 +29,16 @@ wss.on("connection", ws => {
         }   
       if (unityClient) {
          unityClient.send(JSON.stringify(data));
+         connectedClients.forEach((client) => {
+            client.send(JSON.stringify(data))
+        })
          console.log('sending data to unity: ', data)
+      } else {
+        ws.send(JSON.stringify(data))
+        connectedClients.forEach((client) => {
+            client.send(JSON.stringify(data))
+        })
+        console.log('sending data back to client: ', data)
       }
         
     });
